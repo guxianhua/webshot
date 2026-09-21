@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>巡检端 - 网站巡检系统</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: #f5f6fa; color: #333; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        header h1 { font-size: 24px; color: #2c3e50; }
+        .header-right { text-align: right; }
+        .back-link { color: #409eff; text-decoration: none; font-size: 14px; }
+        .back-link:hover { text-decoration: underline; }
+        .inspect-time { font-size: 13px; color: #909399; margin-top: 4px; }
+        .section { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .section-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; color: #2c3e50; }
+        .live-hint { font-size: 13px; color: #409eff; margin-bottom: 16px; }
+        .live-hint.done { color: #67c23a; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .stat-card { background: #fff; border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-top: 4px solid #409eff; }
+        .stat-card.danger { border-top-color: #f56c6c; }
+        .stat-card.warning { border-top-color: #e6a23c; }
+        .stat-card.success { border-top-color: #67c23a; }
+        .stat-value { font-size: 32px; font-weight: 700; color: #2c3e50; margin: 8px 0; }
+        .stat-label { color: #909399; font-size: 14px; }
+        .hidden { display: none; }
+        .no-data { text-align: center; color: #909399; padding: 60px; }
+
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .gallery-item { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+        .gallery-item:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+        .gallery-item img { width: 100%; height: 200px; object-fit: cover; display: block; background: #f5f7fa; }
+        .gallery-item .no-screenshot { width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; background: #f5f7fa; color: #c0c4cc; font-size: 14px; }
+        .gallery-item.loading { opacity: 0.5; }
+        .gallery-info { padding: 12px; }
+        .gallery-name { font-size: 14px; font-weight: 600; color: #2c3e50; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gallery-meta { display: flex; justify-content: space-between; align-items: center; }
+        .gallery-unit { font-size: 12px; color: #909399; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+        .tag-success { background: #f0f9eb; color: #67c23a; }
+        .tag-danger { background: #fef0f0; color: #f56c6c; }
+        .tag-warning { background: #fdf6ec; color: #e6a23c; }
+        .tag-info { background: #f4f4f5; color: #909399; }
+        .tag-login { background: #f3e5f5; color: #9c27b0; }
+        .tag-noimg { background: #fff7e6; color: #d46b08; border: 1px solid #ffd591; }
+        .filter-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .filter-btn { padding: 6px 14px; border: 1px solid #dcdfe6; background: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .filter-btn.active { background: #409eff; color: #fff; border-color: #409eff; }
+
+        .mode-bar { position: fixed; top: 50%; right: 20px; transform: translateY(-50%); background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); padding: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 1000; }
+        .mode-btn { padding: 8px 12px; border: 1px solid #dcdfe6; background: #fff; border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap; transition: all 0.2s; }
+        .mode-btn.active { background: #409eff; color: #fff; border-color: #409eff; }
+        .mode-btn:hover { border-color: #409eff; }
+        .mode-label { font-size: 10px; color: #909399; text-align: center; margin-bottom: 2px; }
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 8px 20px; border-radius: 4px; font-size: 14px; z-index: 10000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .toast.show { opacity: 1; }
+
+        .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 9999; cursor: zoom-out; }
+        .lightbox.active { display: flex; }
+        .lightbox img { max-width: 95vw; max-height: 90vh; object-fit: contain; border-radius: 4px; }
+        .lightbox .close-btn { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 36px; cursor: pointer; line-height: 1; }
+        .lightbox .info { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 14px; background: rgba(0,0,0,0.5); padding: 6px 16px; border-radius: 4px; }
+        .lightbox .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); color: #fff; font-size: 48px; cursor: pointer; user-select: none; padding: 16px; }
+        .lightbox .prev-btn { left: 20px; }
+        .lightbox .next-btn { right: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>巡检端</h1>
+            </div>
+            <div class="header-right">
+                <a href="/" class="back-link">← 返回首页</a>
+                <div class="inspect-time" id="inspectTime"></div>
+            </div>
+        </header>
+
+        <div class="section">
+            <div class="section-title">截图相册</div>
+            <div class="live-hint hidden" id="liveHint"></div>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">总数量</div>
+                    <div class="stat-value" id="statTotal">0</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">正常</div>
+                    <div class="stat-value" id="statNormal">0</div>
+                </div>
+                <div class="stat-card" style="border-top-color: #d46b08;">
+                    <div class="stat-label">正常但无截图</div>
+                    <div class="stat-value" id="statNoimg">0</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-label">无法访问</div>
+                    <div class="stat-value" id="statFail">0</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-label">空白页</div>
+                    <div class="stat-value" id="statBlank">0</div>
+                </div>
+                <div class="stat-card" style="border-top-color: #9c27b0;">
+                    <div class="stat-label">登录页面</div>
+                    <div class="stat-value" id="statLogin">0</div>
+                </div>
+            </div>
+            <div class="filter-btns">
+                <button class="filter-btn active" onclick="setFilter('all')">全部</button>
+                <button class="filter-btn" onclick="setFilter('normal')">正常</button>
+                <button class="filter-btn" onclick="setFilter('noimg')">正常但无截图</button>
+                <button class="filter-btn" onclick="setFilter('fail')">无法访问</button>
+                <button class="filter-btn" onclick="setFilter('blank')">空白页</button>
+                <button class="filter-btn" onclick="setFilter('login')">登录页面</button>
+            </div>
+            <div class="gallery" id="gallery"></div>
+            <div class="no-data" id="noData">暂无巡检结果，请先在首页发起巡检</div>
+        </div>
+    </div>
+
+    <div class="mode-bar">
+        <div class="mode-label">点击模式</div>
+        <button class="mode-btn active" onclick="setMode('zoom', this)">放大图片</button>
+        <button class="mode-btn" onclick="setMode('open', this)">打开网页</button>
+        <button class="mode-btn" onclick="setMode('copy', this)">复制名称</button>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+        <div class="close-btn">&times;</div>
+        <div class="nav-btn prev-btn" onclick="navLightbox(event,-1)">&#8249;</div>
+        <img id="lightboxImg" src="" alt="screenshot">
+        <div class="nav-btn next-btn" onclick="navLightbox(event,1)">&#8250;</div>
+        <div class="info" id="lightboxInfo"></div>
+    </div>
+
+    <script>
+        let results = [];
+        let currentFilter = 'all';
+        let lightboxIndex = 0;
+        let pollTimer = null;
+        let clickMode = 'zoom';
+
+        async function loadResults() {
+            const res = await fetch('/api/latest-task');
+            const data = await res.json();
+            const task = data.task;        // 最新任务（用于状态提示）
+            const album = data.album_task; // 用于相册展示的任务（最新有结果的）
+
+            // 显示实时状态（跟随最新任务）
+            const hint = document.getElementById('liveHint');
+            if (task && task.status === 'running') {
+                hint.textContent = '巡检进行中... ' + (task.completed||0) + ' / ' + (task.total||0);
+                hint.classList.remove('hidden', 'done');
+            } else if (task && task.status === 'stopped') {
+                hint.textContent = '巡检已停止';
+                hint.classList.remove('hidden');
+                hint.classList.add('done');
+            } else {
+                hint.textContent = '巡检已完成';
+                hint.classList.remove('hidden');
+                hint.classList.add('done');
+            }
+
+            // 相册内容用 album_task（最新任务无结果时回退到上一次）
+            const noData = document.getElementById('noData');
+            if (!album || !album.results || album.results.length === 0) {
+                // 如果 task 有但 album 为空，说明数据已过期
+                if (task && task.status !== 'running') {
+                    noData.innerHTML = '<span style="color:#e6a23c">网站列表已更新</span>，请在首页重新发起巡检';
+                } else {
+                    noData.textContent = '暂无巡检结果，请先在首页发起巡检';
+                }
+                noData.classList.remove('hidden');
+                document.getElementById('inspectTime').textContent = '';
+                results = [];
+                renderResults();
+            } else {
+                noData.classList.add('hidden');
+                const startTime = album.started_at ? formatTime(album.started_at) : '';
+                document.getElementById('inspectTime').textContent = startTime ? ('巡检时间: ' + startTime) : '';
+                results = album.results;
+                renderResults();
+            }
+
+            // 巡检进行中则持续轮询
+            if (task && task.status === 'running') {
+                if (!pollTimer) {
+                    pollTimer = setInterval(loadResults, 3000);
+                }
+            } else {
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            }
+        }
+
+        function formatTime(isoStr) {
+            const d = new Date(isoStr);
+            const pad = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        }
+
+        function renderResults() {
+            document.getElementById('noData').classList.add('hidden');
+            const total = results.length;
+            const normal = results.filter(r => r.status === '正常' && !r.is_blank).length;
+            const fail = results.filter(r => r.status === '无法访问').length;
+            const blank = results.filter(r => r.is_blank).length;
+            const login = results.filter(r => r.is_login).length;
+            const noimg = results.filter(r => r.status === '正常但无截图').length;
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statNormal').textContent = normal;
+            document.getElementById('statFail').textContent = fail;
+            document.getElementById('statBlank').textContent = blank;
+            document.getElementById('statLogin').textContent = login;
+            document.getElementById('statNoimg').textContent = noimg;
+            renderGallery();
+        }
+
+        function setFilter(f) {
+            currentFilter = f;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderGallery();
+        }
+
+        function getFiltered() {
+            if (currentFilter === 'normal') return results.filter(r => r.status === '正常' && !r.is_blank && !r.is_login);
+            if (currentFilter === 'fail') return results.filter(r => r.status === '无法访问');
+            if (currentFilter === 'blank') return results.filter(r => r.is_blank);
+            if (currentFilter === 'login') return results.filter(r => r.is_login);
+            if (currentFilter === 'noimg') return results.filter(r => r.status === '正常但无截图');
+            return results;
+        }
+
+        function renderGallery() {
+            const filtered = getFiltered();
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = filtered.map((r, i) => {
+                let tagClass = 'tag-info';
+                let tagText = r.status;
+                if (r.status === '正常') tagClass = 'tag-success';
+                if (r.status === '无法访问') tagClass = 'tag-danger';
+                if (r.status === '正常但无截图') { tagClass = 'tag-noimg'; tagText = '正常但无截图'; }
+                if (r.is_blank && r.status !== '正常但无截图') { tagClass = 'tag-warning'; tagText = '空白页'; }
+                if (r.is_login) { tagClass = 'tag-login'; tagText = '登录页面'; }
+                const img = r.screenshot
+                    ? `<img src="/api/screenshot/${r.screenshot}?t=${Date.now()}" loading="lazy">`
+                    : `<div class="no-screenshot">无截图</div>`;
+                return `<div class="gallery-item" onclick="handleClick(${i})">
+                    ${img}
+                    <div class="gallery-info">
+                        <div class="gallery-name">${r.name||''}</div>
+                        <div class="gallery-meta">
+                            <span class="gallery-unit">${r.unit||''}</span>
+                            <span class="tag ${tagClass}">${tagText}</span>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function setMode(mode, btn) {
+            clickMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        function handleClick(index) {
+            const filtered = getFiltered();
+            if (index < 0 || index >= filtered.length) return;
+            const r = filtered[index];
+            if (clickMode === 'zoom') {
+                if (r.screenshot) openLightbox(index);
+                else showToast('无截图可放大');
+            } else if (clickMode === 'open') {
+                window.open(r.url || '', '_blank');
+            } else if (clickMode === 'copy') {
+                const text = `${r.name || ''} ${r.url || ''}`.trim();
+                navigator.clipboard.writeText(text).then(() => showToast('已复制: ' + text));
+            }
+        }
+
+        function openLightbox(index) {
+            const filtered = getFiltered();
+            if (index < 0 || index >= filtered.length) return;
+            lightboxIndex = index;
+            const r = filtered[index];
+            if (!r.screenshot) return;
+            document.getElementById('lightboxImg').src = '/api/screenshot/' + r.screenshot;
+            document.getElementById('lightboxInfo').textContent = `${r.name||''} - ${r.url||''}`;
+            document.getElementById('lightbox').classList.add('active');
+        }
+
+        function navLightbox(e, dir) {
+            e.stopPropagation();
+            const filtered = getFiltered();
+            let next = lightboxIndex + dir;
+            while (next >= 0 && next < filtered.length && !filtered[next].screenshot) next += dir;
+            if (next >= 0 && next < filtered.length) openLightbox(next);
+        }
+
+        function closeLightbox(e) {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') document.getElementById('lightbox').classList.remove('active');
+            if (e.key === 'ArrowLeft') navLightbox({stopPropagation:()=>{}}, -1);
+            if (e.key === 'ArrowRight') navLightbox({stopPropagation:()=>{}}, 1);
+        });
+
+        window.addEventListener('load', loadResults);
+    </script>
+</body>
+</html>

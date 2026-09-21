@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网站巡检系统</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: #f5f6fa; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
+        header { text-align: center; margin-bottom: 40px; }
+        header h1 { font-size: 32px; color: #2c3e50; margin-bottom: 12px; }
+        header p { color: #909399; font-size: 16px; }
+        .choices { display: flex; flex-direction: column; gap: 24px; }
+        .choice-card { background: #fff; border-radius: 16px; padding: 32px; text-align: center; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 2px solid transparent; }
+        .choice-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+        .choice-card.admin:hover { border-color: #409eff; }
+        .choice-card.user:hover { border-color: #67c23a; }
+        .choice-icon { width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 36px; }
+        .choice-card.admin .choice-icon { background: #ecf5ff; color: #409eff; }
+        .choice-card.user .choice-icon { background: #f0f9eb; color: #67c23a; }
+        .choice-title { font-size: 22px; font-weight: 600; margin-bottom: 8px; color: #2c3e50; }
+        .choice-desc { color: #909399; font-size: 14px; }
+
+        .inspect-card { background: #fff; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .inspect-card-title { font-size: 13px; color: #909399; margin-bottom: 10px; }
+        .play-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: #409eff; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .play-btn:hover { background: #66b1ff; transform: scale(1.05); }
+        .play-btn:disabled { background: #a0cfff; cursor: not-allowed; transform: none; }
+        .play-btn::before { content: ''; width: 0; height: 0; border-left: 14px solid #fff; border-top: 9px solid transparent; border-bottom: 9px solid transparent; margin-left: 4px; }
+        .stop-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: #f56c6c; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .stop-btn:hover { background: #f78989; transform: scale(1.05); }
+        .stop-btn::before { content: ''; width: 14px; height: 14px; background: #fff; border-radius: 2px; }
+        .inspect-row { display: flex; align-items: center; gap: 14px; }
+        .inspect-info { flex: 1; }
+        .last-inspect { font-size: 12px; color: #909399; margin-bottom: 2px; }
+        .inspect-status { font-size: 14px; font-weight: 600; }
+        .inspect-status.running { color: #409eff; }
+        .inspect-status.done { color: #67c23a; }
+        .inspect-status.stopped { color: #e6a23c; }
+        .inspect-stats { font-size: 12px; color: #606266; }
+        .progress-segs { display: flex; gap: 4px; margin-top: 10px; }
+        .progress-segs .seg { flex: 1; height: 6px; background: #ebeef5; border-radius: 2px; transition: background 0.3s; }
+        .progress-segs .seg.active { background: #409eff; }
+        .progress-segs.done .seg.active { background: #67c23a; }
+        .progress-segs.stopped .seg.active { background: #e6a23c; }
+        .hidden { display: none; }
+        .no-sites { color: #f56c6c; font-size: 13px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>网站巡检系统</h1>
+        </header>
+
+        <div class="inspect-card">
+            <div class="inspect-card-title">巡检任务</div>
+            <div class="inspect-row">
+                <button class="play-btn" id="startBtn" onclick="startInspect()" title="开始巡检"></button>
+                <button class="stop-btn hidden" id="stopBtn" onclick="stopInspect()" title="停止巡检"></button>
+                <div class="inspect-info">
+                    <div class="last-inspect" id="lastInspect"></div>
+                    <span class="inspect-stats" id="taskStats">-</span>
+                </div>
+            </div>
+            <div class="progress-segs" id="progressSegs">
+                <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+                <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+            </div>
+            <div class="no-sites hidden" id="noSites">请先在管理端上传网站列表</div>
+        </div>
+
+        <div class="choices">
+            <div class="choice-card admin" onclick="location.href='/admin'">
+                <div class="choice-icon">管理</div>
+                <div class="choice-title">管理端</div>
+                <div class="choice-desc">上传网站列表、维护数据</div>
+            </div>
+            <div class="choice-card user" onclick="location.href='/user'">
+                <div class="choice-icon">巡检</div>
+                <div class="choice-title">巡检端</div>
+                <div class="choice-desc">查看截图相册</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let pollTimer = null;
+
+        async function startInspect() {
+            const res = await fetch('/api/sites');
+            const data = await res.json();
+            if (!data.sites || data.sites.length === 0) {
+                document.getElementById('noSites').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('noSites').classList.add('hidden');
+            document.getElementById('startBtn').classList.add('hidden');
+
+            const resp = await fetch('/api/inspect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+            const result = await resp.json();
+            if (result.error) { alert(result.error); document.getElementById('startBtn').classList.remove('hidden'); return; }
+            document.getElementById('stopBtn').classList.remove('hidden');
+            pollStatus();
+        }
+
+        async function stopInspect() {
+            if (!confirm('确定停止当前巡检吗？')) return;
+            await fetch('/api/inspect/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        }
+
+        function pollStatus() {
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(async () => {
+                const res = await fetch('/api/latest-task');
+                const data = await res.json();
+                if (!data.task) return;
+                updateProgress(data.task);
+                if (data.task.status === 'done' || data.task.status === 'stopped') {
+                    clearInterval(pollTimer);
+                    pollTimer = null;
+                    document.getElementById('stopBtn').classList.add('hidden');
+                    document.getElementById('startBtn').classList.remove('hidden');
+                }
+            }, 2000);
+        }
+
+        function updateProgress(task) {
+            const isRunning = task.status === 'running';
+            const isOutdated = !!task.outdated;
+            const segsContainer = document.getElementById('progressSegs');
+            const statsEl = document.getElementById('taskStats');
+            const segs = document.querySelectorAll('#progressSegs .seg');
+            if (isOutdated) {
+                // 历史任务过期：清空进度条，标记为网站列表已更新
+                statsEl.textContent = '';
+                segs.forEach(s => s.classList.remove('active'));
+                segsContainer.classList.remove('done', 'stopped');
+                segsContainer.classList.add('stopped'); // 用橙色
+            } else {
+                const completed = task.completed || 0;
+                const total = task.total || 1;
+                const pct = Math.round((completed / total) * 100);
+                statsEl.textContent = `${completed} / ${total}（${pct}%）`;
+                const segCount = Math.ceil((completed / total) * 10);
+                segs.forEach((s, i) => s.classList.toggle('active', i < segCount));
+                segsContainer.classList.remove('done', 'stopped');
+                if (!isRunning) segsContainer.classList.add(task.status);
+            }
+            updateLastInspect(task);
+        }
+
+        function updateLastInspect(task) {
+            const el = document.getElementById('lastInspect');
+            if (task.outdated) {
+                el.innerHTML = '<span style="color:#e6a23c">网站列表已更新，请重新巡检</span>';
+                return;
+            }
+            if (!task.started_at) { el.textContent = ''; return; }
+            if (task.status === 'running') { el.textContent = '本次巡检进行中'; return; }
+            const start = new Date(task.started_at);
+            const end = task.finished_at ? new Date(task.finished_at) : new Date();
+            let durMs = end - start;
+            if (durMs < 0) durMs = 0;
+            const dh = Math.floor(durMs / 3600000);
+            const dm = Math.floor((durMs % 3600000) / 60000);
+            const ds = Math.floor((durMs % 60000) / 1000);
+            let duration;
+            if (dh > 0) duration = `${dh}小时${dm}分钟`;
+            else if (dm > 0) duration = `${dm}分${ds}秒`;
+            else duration = `${ds}秒`;
+            const prefix = task.status === 'stopped' ? '巡检已停止' : '本次巡检用时';
+            const now = new Date();
+            let agoMs = now - end;
+            if (agoMs < 0) agoMs = 0;
+            const ah = Math.floor(agoMs / 3600000);
+            const am = Math.floor((agoMs % 3600000) / 60000);
+            let ago;
+            if (ah > 0) ago = `${ah}小时${am}分钟前`;
+            else if (am > 0) ago = `${am}分钟前`;
+            else ago = '刚刚';
+            el.textContent = `${prefix} ${duration}（${ago}）`;
+        }
+
+        async function loadLatestTask() {
+            const res = await fetch('/api/latest-task');
+            const data = await res.json();
+            if (!data.task) return;
+            updateProgress(data.task);
+            if (data.task.status === 'running') {
+                document.getElementById('startBtn').classList.add('hidden');
+                document.getElementById('stopBtn').classList.remove('hidden');
+                pollStatus();
+            }
+        }
+        window.addEventListener('load', loadLatestTask);
+    </script>
+</body>
+</html>
